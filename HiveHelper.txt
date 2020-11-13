@@ -1,0 +1,66 @@
+CREATE DATABASE AirlineDB;
+
+USE AirlineDB;
+
+CREATE EXTERNAL TABLE flightData(Year INT, Month INT, DayofMonth INT, DayOfWeek INT, DepTime INT, CRSDepTime INT, ArrTime INT, CRSArrTime INT, UniqueCarrier String, FlightNum INT, TailNum String, ActualElapsedTime INT, CRSElapsedTime INT, AirTime INT, ArrDelay INT, DepDelay INT, Origin String, Dest String, Distance INT, TaxiIn INT, TaxiOut INT, Cancelled INT, CancellationCode String, Diverted String, CarrierDelay INT, WeatherDelay INT, NASDelay INT, SecurityDelay INT, LateAircraftDelay INT ) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+
+LOAD DATA INPATH '/flightData' OVERWRITE INTO TABLE flightData;
+Time taken: 0.553 seconds
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/ArrDepAnalysis' SELECT Year,Month,DayofMonth,DayOfWeek,Origin,Dest,AirTime,UniqueCarrier FROM flightData where DepTime>CRSDepTime and ArrTime<=CRSArrTime;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/MonthCancReasonWeather' SELECT month, COUNT(Cancelled) as count FROM flightData WHERE Cancelled=1 AND CancellatioCode='B' GROUP BY month ORDER BY count;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/Top10BusyRoutes' SELECT Origin, Dest, count(*) as count FROM flightData GROUP BY Origin, Dest ORDER BY count DESC LIMIT 10;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/AvgTaxiinTime' SELECT Origin, AVG(TaxiIn) as avg FROM flightData GROUP BY Origin
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' Select c.description, f.countCancelled, f.countCarrier from carriers c JOIN (Select UniqueCarrier, sum(cancelled) as countCancelled, count(*) as countCarrier from flightData group by UniqueCarrier) f ON (c.code = f.UniqueCarrier);
+
+SELECT c.id, c.name, c.address, ce.exp FROM customer c JOIN (SELECTcus_id,sum(price) AS exp FROM order_cust GROUP BY cus_id) ce ON(c.id=ce.cus_id);
+
+SELECT c.code, c.description, f.
+
+
+CREATE EXTERNAL TABLE carriers(Code String, Description String) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' ;
+
+LOAD DATA INPATH '/joindata/carriers.csv' OVERWRITE INTO TABLE carriers;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' 
+SELECT carriers.description, cancCount.countCancelled, cancCount.countCarrier 
+FROM carriers JOIN 
+(Select UniqueCarrier, sum(cancelled) as countCancelled, count(*) as countCarrier from flightData group by UniqueCarrier) AS cancCount 
+ON carriers.code = cancCount.UniqueCarrier;
+
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' 
+SELECT carriers.description, cancCount.countCancelled, cancCount.countCarrier 
+FROM 
+(Select UniqueCarrier, sum(cancelled) as countCancelled, count(*) as countCarrier from flightData group by UniqueCarrier) AS cancCount, carriers
+WHERE carriers.code = cancCount.UniqueCarrier;
+
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' Select carriers.description, uniqCount.countCancelled, uniqCount.countCarrier from (Select UniqueCarrier, sum(cancelled) as countCancelled, count(*) as countCarrier from flightData group by UniqueCarrier) AS uniqCount, carriers where carriers.code = uniqCount.UniqueCarrier;
+
+
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' select f.UniqueCarrier, c.description from flightData f JOIN carriers c ON f.UniqueCarrier = c.code 
+
+
+
+
+
+CREATE EXTERNAL TABLE testProjData(Year INT, Month INT, DayofMonth INT, DayOfWeek INT, DepTime INT, CRSDepTime INT, ArrTime INT, CRSArrTime INT, UniqueCarrier String, FlightNum INT, TailNum String, ActualElapsedTime INT, CRSElapsedTime INT, AirTime INT, ArrDelay INT, DepDelay INT, Origin String, Dest String, Distance INT, TaxiIn INT, TaxiOut INT, Cancelled INT, CancellationCode String, Diverted String, CarrierDelay INT, WeatherDelay INT, NASDelay INT, SecurityDelay INT, LateAircraftDelay INT ) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' location '/hive';
+
+LOAD DATA INPATH '/testProjData' OVERWRITE INTO TABLE testProjData;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' SELECT c.description, f.countCancelled, f.countCarrier FROM carriers c JOIN (Select UniqueCarrier, sum(cancelled) as countCancelled, count(*) as countCarrier from testProjData group by UniqueCarrier) f ON (c.code = f.UniqueCarrier);
+
+CREATE EXTERNAL TABLE carrierFlightsCanc(UniqueCarrier String, countCancelled INT,countCarrier INT) ROW FORMAT DELIMITED FIELDS TERMINATED BY ',';
+INSERT INTO TABLE carrierFlightsCanc SELECT UniqueCarrier, SUM(cancelled), COUNT(*) from testProjData GROUP BY UniqueCarrier;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' SELECT c.Code, c.Description, f.countCancelled, f.countCarrier FROM carriers c JOIN carrierFlightsCanc f ON (c.Code = f.UniqueCarrier);
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' SELECT UniqueCarrier, SUM(cancelled), COUNT(*) from testProjData GROUP BY UniqueCarrier;
+
+INSERT OVERWRITE DIRECTORY '/HIVEOUTPUT/CarrierFlightsCanc' select UniqueCarrier, countCancelled, countCarrier from carrierFlightsCanc;
